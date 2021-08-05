@@ -1,0 +1,33 @@
+#!/usr/bin/env node
+
+var app = require('../app');
+
+const cors = require('cors')
+ app.use(cors())
+const server = require('http').Server(app)
+
+const io = require("socket.io")(server, {
+    cors: {
+        origin: "*",
+    },
+});
+const { ExpressPeerServer } = require('peer');
+const peerServer = ExpressPeerServer(server, {
+  debug: true,
+  port: 443
+});
+const { v4: uuidV4 } = require('uuid')
+
+app.use('/peerjs', peerServer);
+
+io.on("connection", (socket) => {
+  socket.on("join-room", (roomId, { id, name = uuidV4() } ) => {
+    socket.join(roomId);
+    io.to(roomId).emit("user-connected", { id, name });
+    socket.on("disconnect", () => {
+      io.to(roomId).emit("user-disconnected", { id, name });
+    });
+  });
+});
+
+server.listen(process.env.PORT||3000)
